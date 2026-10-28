@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── 1. Auth / 회원 ───
+
+model User {
+  id         Int      @id @default(autoincrement())
+  teamId     String
+  email      String
+  name       String
+  password   String? // nullable for OAuth users
+  image      String?
+  provider   String  @default("email") // "email" | "google" | "kakao"
+  providerId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  goals         Goal[]
+  todos         Todo[]
+  notes         Note[]
+  posts         Post[]
+  comments      Comment[]
+  commentLikes  CommentLike[]
+  notifications Notification[]
+  favorites     Favorite[]
+  tags          Tag[]
+
+  @@unique([teamId, email])
+  @@unique([teamId, provider, providerId])
+  @@index([teamId])
+}
+
+model RefreshToken {
+  id         Int       @id @default(autoincrement())
+  tokenHash  String    @unique
+  userId     Int
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  replacedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ─── 3. 목표 ───
+
+model Goal {
+  id        Int      @id @default(autoincrement())
+  teamId    String
+  userId    Int
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  todos Todo[]
+
+  @@index([teamId, userId])
+}
+
+// ─── 4. 할 일 ───
+
+model Todo {
+  id        Int       @id @default(autoincrement())
+  teamId    String
+  userId    Int
+  goalId    Int?
+  title     String
+  done      Boolean   @default(false)
+  fileUrl   String?
+  linkUrl   String?
+  dueDate   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal      Goal?      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  notes     Note[]
+  favorites Favorite[]
+  tags      TodoTag[]
+
+  @@index([teamId, userId])
+  @@index([goalId])
+}
+
+// ─── 태그 ───
+
+model Tag {
+  id        Int      @id @default(autoincrement())
+  teamId    String
+  userId    Int
+  name      String
+  createdAt DateTime @default(now())
+
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  todos TodoTag[]
+
+  @@unique([teamId, userId, name])
+  @@index([teamId, userId])
+}
+
+model TodoTag {
+  todoId Int
+  tagId  Int
+
+  todo Todo @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([todoId, tagId])
+  @@index([tagId])
+}
+
+// ─── 5. 노트 (할 일에 1:N 연결) ───
+
+model Note {
+  id        Int      @id @default(autoincrement())
+  teamId    String
+  userId    Int
+  todoId    Int
+  title     String
+  content   Json?
+  linkUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  todo Todo @relation(fields: [todoId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, userId])
+  @@index([todoId])
+}
+
+// ─── 6. 찜한 할 일 ───
+
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  teamId    String
+  userId    Int
+  todoId    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  todo Todo @relation(fields: [todoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, todoId])
+  @@index([teamId, userId])
+}
+
+// ─── 8. 커뮤니티 (게시판) ───
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  teamId    String
+  userId    Int
+  title     String
+  content   String
+  image     String?
+  viewCount Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  @@index([teamId])
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  teamId    String
+  userId    Int
+  postId    Int
+  parentId  Int?
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post    Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent  Comment?    @relation("CommentReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies Comment[]   @relation("CommentReplies")
+  likes   CommentLike[]
+
+  @@index([postId])
+  @@index([teamId, postId])
+  @@index([parentId])
+}
+
+model CommentLike {
+  id        Int      @id @default(autoincrement())
+  teamId    String
+  userId    Int
+  commentId Int
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@index([teamId, userId])
+  @@index([commentId])
+}
+
+// ─── 2. 알림 ───
+
+model Notification {
+  id         Int      @id @default(autoincrement())
+  teamId     String
+  userId     Int
+  type       String // "todo" | "goal" | "post" | "comment"
+  message    String
+  data       Json?
+  isRead     Boolean  @default(false)
+  resourceId Int?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, userId])
+}

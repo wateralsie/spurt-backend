@@ -1,0 +1,33 @@
+{
+  "name": "hono",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot src/dev.ts",
+    "build": "bunx prisma migrate deploy && bun build src/index.ts --outfile=api/index.js --target=node --format=esm",
+    "postinstall": "bunx prisma generate",
+    "seed": "bun prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "bun prisma/seed.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.990.0",
+    "@aws-sdk/s3-request-presigner": "^3.992.0",
+    "@hono/swagger-ui": "^0.5.3",
+    "@hono/zod-openapi": "^1.2.1",
+    "@prisma/adapter-pg": "^7.4.0",
+    "@prisma/client": "^7.4.0",
+    "bcrypt": "^6.0.0",
+    "hono": "^4.11.9",
+    "pg": "^8.18.0",
+    "prisma": "^7.4.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/node": "^20.11.17",
+    "@types/pg": "^8.16.0",
+    "tsx": "^4.7.1",
+    "typescript": "^5.8.3"
+  }
+}
